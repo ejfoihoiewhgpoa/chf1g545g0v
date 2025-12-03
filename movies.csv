@@ -1,0 +1,21 @@
+movie_id,title,genre,duration,price
+1,Mưa đỏ,Chiến tranh,120,50000
+2,Bộ tứ báo thủ,Hài/giải trí,110,45000
+3,Thám tử Kiên: Kỳ án không đầu,Kinh dị/giật gân,115,50000
+4,Nhà gia tiên,Hài/phiêu lưu,105,40000
+5,Lật mặt 8: Vòng tay nắng,Hành động,125,50000
+6,Nụ hôn bạc tỉ,Lãng mạn,100,40000
+7,Địa đạo: Mặt trời trong bóng tối,Chiến tranh/lịch sử,130,55000
+8,Đèn âm hồn,Kinh dị,95,40000
+9,Quỷ nhập tràng,Kinh dị/phiêu lưu,110,45000
+10,Tử chiến trên không,Hành động,120,50000
+11,Kỳ Nam Inn,Lãng mạn,105,45000
+12,Minions: The Rise of Gru,Hoạt hình/hài,90,50000
+13,The Super Mario Bros Movie,Hoạt hình/phiêu lưu,92,50000
+14,Spider-Man: Beyond the Multiverse,Marvel/Hành động,130,60000
+15,Avengers: Secret Wars,Marvel/Hành động,145,60000
+16,Avatar: Fire and Ash,Nước ngoài/phiêu lưu,180,70000
+17,Five Nights at Freddy's 2,Nước ngoài/kinh dị,100,55000
+18,Kill Bill: The Whole Bloody Affair,Nước ngoài/hành động,160,60000
+19,The Housemaid,Nước ngoài/kinh dị,110,55000
+20,Marty Supreme,Nước ngoài/hành động,125,60000
