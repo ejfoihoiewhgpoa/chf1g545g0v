@@ -1,0 +1,105 @@
+import csv
+import os
+
+MOVIE_FILE = "movies.csv"
+USER_FILE = "users.csv"
+TICKET_FILE = "tickets.csv"
+
+def read_csv(file):
+    if not os.path.exists(file):
+        return []
+    with open(file, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+def write_csv(file, fieldnames, rows):
+    with open(file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+def append_csv(file, fieldnames, row):
+    rows = read_csv(file)
+    rows.append(row)
+    write_csv(file, fieldnames, rows)
+
+def dashboard():
+    movies = read_csv(MOVIE_FILE)
+    users = read_csv(USER_FILE)
+    tickets = read_csv(TICKET_FILE)
+
+    revenue = sum(int(t["price"]) for t in tickets) if tickets else 0
+
+    print("\n===== DASHBOARD =====")
+    print(f"1. Tổng doanh thu: {revenue}")
+    print(f"2. Số phim: {len(movies)}")
+    print(f"3. Số user: {len(users)}")
+    print(f"4. Vé đã bán: {len(tickets)}")
+    print("=====================\n")
+
+def them_phim():
+    print("\n===== THÊM PHIM =====")
+    title = input("Tên phim: ")
+    genre = input("Thể loại: ")
+    duration = input("Thời lượng: ")
+    price = input("Giá vé: ")
+
+    movie_id = str(len(read_csv(MOVIE_FILE)) + 1)
+
+    append_csv(MOVIE_FILE,
+               ["movie_id","title","genre","duration","price"],
+               {
+                   "movie_id": movie_id,
+                   "title": title,
+                   "genre": genre,
+                   "duration": duration,
+                   "price": price
+               })
+
+    print("✔ Đã thêm phim!\n")
+
+def xem_phim():
+    movies = read_csv(MOVIE_FILE)
+
+    print("\n===== DANH SÁCH PHIM =====")
+    if not movies:
+        print("Không có phim nào.")
+    else:
+        for m in movies:
+            print(f"{m['movie_id']}. {m['title']} | {m['genre']} | {m['duration']} phút | {m['price']}đ")
+    print("===========================\n")
+
+def xoa_phim():
+    xem_phim()
+    movie_id = input("Nhập ID phim cần xóa: ")
+
+    movies = read_csv(MOVIE_FILE)
+    movies = [m for m in movies if m["movie_id"] != movie_id]
+
+    write_csv(MOVIE_FILE, ["movie_id","title","genre","duration","price"], movies)
+
+    print("✔ Đã xóa phim!\n")
+
+def admin_menu():
+    while True:
+        dashboard()
+
+        print("===== MENU ADMIN =====")
+        print("1. Thêm phim")
+        print("2. Xóa phim")
+        print("3. Xem danh sách phim")
+        print("4. Thoát")
+
+        choice = input("Chọn: ")
+
+        if choice == "1":
+            them_phim()
+        elif choice == "2":
+            xoa_phim()
+        elif choice == "3":
+            xem_phim()
+        elif choice == "4":
+            break
+        else:
+            print("Lựa chọn không hợp lệ!\n")
+
+admin_menu()
