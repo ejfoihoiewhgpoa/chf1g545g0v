@@ -1,0 +1,46 @@
+def read_csv(file):
+    if not os.path.exists(file):
+        return []
+    with open (file, newline="", encoding='utf-8') as f:
+        return list (csv.DictReader(f))
+
+def write_csv(file, fielnames, rows):
+    with open (file, "w", newline="", encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fielname=fielnames)
+        writer.whiteheader()
+        writer.writerows(rows)
+        
+def them_phim(movie_id, title, genre, duration, price):
+    movies = read_csv(MOVIE_FILE)
+    for m in movies:
+        if m["movie_id"] == movie_id:
+            return False, "Movie ID already exists!"
+    new_movies = {
+        "movie_id": movie_id,
+        "title": title,
+        "genre": genre,
+        "duration": duration,
+        "price": price,
+    }
+    movies.append(new_movies)
+    write_csv(MOVIE_FILE,
+          ["movie_id", "title", "genre", "duration", "price"],
+          movies)
+    return True, "Movie added successfully!"
+
+def xoa_phim(movie_id):
+    movies = read_csv(MOVIE_FILE)
+    new_movies = [m for m in movies if m["movie_id"] != movie_id]
+    if len(new_movies) == len(movies):
+        return False, "Movie ID not found!"
+    write_csv(MOVIE_FILE, ["movie_id", "title", "genre", "duration", "price"], new_movies)
+    return True, "Delete success!"
+
+def thong_ke_doanh_thu():
+    ticket = read_csv(TICKET_FILE)
+    total = 0
+    
+    for t in ticket:
+        total += float(t["price"])
+    return total
+    
