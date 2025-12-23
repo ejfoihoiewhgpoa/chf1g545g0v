@@ -1,0 +1,159 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime, timedelta
+import data
+
+class AdminDashboard(tk.Frame):
+    def __init__(self, master, on_logout):
+        super().__init__(master)
+        # Các biến lưu ID đang được chọn để sửa
+        self.selected_phim_id = None
+        self.selected_lich_id = None
+        self.selected_user_id = None
+
+        # Header
+        top_frame = tk.Frame(self, bg="#2c3e50", height=50); top_frame.pack(fill="x")
+        tk.Label(top_frame, text="ADMIN DASHBOARD", fg="white", bg="#2c3e50", font=("Arial", 14, "bold")).pack(side="left", padx=10)
+        tk.Button(top_frame, text="Đăng xuất", command=on_logout).pack(side="right", padx=10)
+
+        # Tabs
+        notebook = ttk.Notebook(self); notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        self.tab_phim = tk.Frame(notebook); self.tab_lich = tk.Frame(notebook); self.tab_user = tk.Frame(notebook); self.tab_doanh_thu = tk.Frame(notebook)
+
+        notebook.add(self.tab_phim, text="1. Phim"); notebook.add(self.tab_lich, text="2. Lịch Chiếu")
+        notebook.add(self.tab_user, text="3. Người dùng"); notebook.add(self.tab_doanh_thu, text="4. Doanh thu")
+
+        self.build_tab_phim(); self.build_tab_lich(); self.build_tab_user(); self.build_tab_doanh_thu()
+
+    # --- TAB 1: PHIM ---
+    def build_tab_phim(self):
+        # Tìm kiếm
+        f_search = tk.Frame(self.tab_phim); f_search.pack(fill="x", padx=10, pady=5)
+        tk.Label(f_search, text="🔍 Tìm phim:").pack(side="left")
+        self.entry_search_phim = tk.Entry(f_search, width=30); self.entry_search_phim.pack(side="left", padx=5)
+        self.entry_search_phim.bind("<KeyRelease>", self.refresh_list_phim)
+
+        # Form nhập liệu
+        f_input = tk.LabelFrame(self.tab_phim, text="Thông tin"); f_input.pack(fill="x", padx=5)
+        self.entries_phim = {}
+        for i, f in enumerate(['Tên phim', 'Thể loại', 'Thời lượng', 'Năm', 'Giá vé', 'Link Poster']):
+            tk.Label(f_input, text=f).grid(row=0, column=i); e = tk.Entry(f_input, width=15); e.grid(row=1, column=i); self.entries_phim[f] = e
+
+        tk.Button(f_input, text="Thêm", command=self.add_movie).grid(row=1, column=6)
+        tk.Button(f_input, text="Sửa", command=self.update_movie).grid(row=1, column=7)
+        tk.Button(f_input, text="Xóa", command=self.delete_movie).grid(row=1, column=8)
+
+        # Bảng
+        self.tree_phim = ttk.Treeview(self.tab_phim, columns=("ID","Ten","TheLoai","ThoiLuong","Nam","GiaVe","Poster"), show="headings")
+        for c in ("ID","Ten","TheLoai","ThoiLuong","Nam","GiaVe","Poster"): self.tree_phim.heading(c, text=c)
+        self.tree_phim.pack(fill="both", expand=True); self.tree_phim.bind("<<TreeviewSelect>>", self.on_select_phim)
+        self.refresh_list_phim()
+
+    def on_select_phim(self, e):
+        sel = self.tree_phim.selection();
+        if not sel: return
+        vals = self.tree_phim.item(sel[0])['values']; self.selected_phim_id = vals[0]
+        for i, k in enumerate(['Tên phim', 'Thể loại', 'Thời lượng', 'Năm', 'Giá vé', 'Link Poster']):
+            self.entries_phim[k].delete(0, tk.END); self.entries_phim[k].insert(0, vals[i+1])
+
+    def refresh_list_phim(self, e=None):
+        for i in self.tree_phim.get_children(): self.tree_phim.delete(i)
+        kw = self.entry_search_phim.get().lower()
+        for p in data.doc_danh_sach_phim():
+            if kw in p['Ten'].lower(): self.tree_phim.insert("", "end", values=(p['ID'],p['Ten'],p['TheLoai'],p['ThoiLuong'],p['Nam'],p['GiaVe'],p['Poster']))
+
+    def add_movie(self):
+        d = {k: v.get() for k, v in self.entries_phim.items()}
+        data.them_phim(d['Tên phim'],d['Thể loại'],d['Thời lượng'],d['Năm'],d['Giá vé'],d['Link Poster'])
+        self.refresh_list_phim()
+
+    def update_movie(self):
+        if not self.selected_phim_id: return
+        d = {k: v.get() for k, v in self.entries_phim.items()}
+        data.cap_nhat_phim(self.selected_phim_id, d['Tên phim'],d['Thể loại'],d['Thời lượng'],d['Năm'],d['Giá vé'],d['Link Poster'])
+        self.refresh_list_phim()
+
+    def delete_movie(self):
+        if self.selected_phim_id and messagebox.askyesno("Xóa", "Xóa phim này?"):
+            data.xoa_phim(self.selected_phim_id); self.refresh_list_phim()
+
+    # --- TAB 2: LỊCH CHIẾU ---
+    def build_tab_lich(self):
+        f = tk.LabelFrame(self.tab_lich, text="Lịch Chiếu"); f.pack(fill="x", padx=10)
+        tk.Label(f, text="Phim:").grid(row=0, column=0); self.cb_phim = ttk.Combobox(f, width=20); self.cb_phim.grid(row=0, column=1)
+        tk.Label(f, text="Ngày:").grid(row=0, column=2); self.cb_ngay = ttk.Combobox(f, width=10, values=[(datetime.now()+timedelta(days=i)).strftime("%d/%m/%Y") for i in range(7)]); self.cb_ngay.current(0); self.cb_ngay.grid(row=0, column=3)
+        tk.Label(f, text="Giờ:").grid(row=0, column=4); self.cb_gio = ttk.Combobox(f, width=8, values=["09:00","12:00","15:00","18:00","21:00"]); self.cb_gio.current(0); self.cb_gio.grid(row=0, column=5)
+        tk.Label(f, text="Phòng:").grid(row=0, column=6); self.cb_phong = ttk.Combobox(f, width=10, values=["Phòng 01","Phòng 02","Phòng VIP"]); self.cb_phong.current(0); self.cb_phong.grid(row=0, column=7)
+
+        tk.Button(f, text="Thêm", command=self.add_sche).grid(row=0, column=8)
+        tk.Button(f, text="Sửa", command=self.upd_sche).grid(row=0, column=9)
+        tk.Button(f, text="Xóa", command=self.del_sche).grid(row=0, column=10)
+        tk.Button(self.tab_lich, text="Auto Xếp Lịch", command=self.auto_sche).pack()
+
+        self.tree_lich = ttk.Treeview(self.tab_lich, columns=("ID","Ten","Ngay","Gio","Phong"), show="headings")
+        for c in ("ID","Ten","Ngay","Gio","Phong"): self.tree_lich.heading(c, text=c)
+        self.tree_lich.pack(fill="both", expand=True); self.tree_lich.bind("<<TreeviewSelect>>", self.sel_sche)
+        self.tab_lich.bind("<Visibility>", self.ref_sche); self.ref_sche(None)
+
+    def ref_sche(self, e):
+        p = data.doc_danh_sach_phim(); self.phim_map = {x['Ten']: x['ID'] for x in p}
+        self.cb_phim['values'] = list(self.phim_map.keys())
+        for i in self.tree_lich.get_children(): self.tree_lich.delete(i)
+        for l in data.doc_toan_bo_lich(): self.tree_lich.insert("", "end", values=(l['ID_Lich'],l['TenPhim'],l['Ngay'],l['Gio'],l['Phong']))
+
+    def sel_sche(self, e):
+        s = self.tree_lich.selection()
+        if s:
+            v = self.tree_lich.item(s[0])['values']; self.selected_lich_id = v[0]
+            self.cb_phim.set(v[1]); self.cb_ngay.set(v[2]); self.cb_gio.set(v[3]); self.cb_phong.set(v[4])
+
+    def add_sche(self):
+        if data.them_lich_chieu(self.phim_map[self.cb_phim.get()], self.cb_phim.get(), self.cb_ngay.get(), self.cb_gio.get(), self.cb_phong.get())[0]: self.ref_sche(None)
+    def upd_sche(self):
+        if self.selected_lich_id: data.cap_nhat_lich_chieu(self.selected_lich_id, self.phim_map[self.cb_phim.get()], self.cb_phim.get(), self.cb_ngay.get(), self.cb_gio.get(), self.cb_phong.get()); self.ref_sche(None)
+    def del_sche(self):
+        if self.selected_lich_id: data.xoa_lich_chieu(self.selected_lich_id); self.ref_sche(None)
+    def auto_sche(self):
+        if data.tu_dong_xep_lich()[0]: self.ref_sche(None)
+
+    # --- TAB 3: USER ---
+    def build_tab_user(self):
+        f = tk.Frame(self.tab_user); f.pack(fill="x")
+        tk.Label(f, text="Tìm User:").pack(side="left"); self.entry_search_user = tk.Entry(f); self.entry_search_user.pack(side="left"); self.entry_search_user.bind("<KeyRelease>", lambda e: self.ref_user())
+
+        f2 = tk.LabelFrame(self.tab_user, text="Sửa User"); f2.pack(fill="x")
+        self.eu = {}; fs = ['Tên','SĐT','Email','Mật khẩu','Vai trò']
+        for i, k in enumerate(fs): tk.Label(f2, text=k).grid(row=0, column=i); e = tk.Entry(f2); e.grid(row=1, column=i); self.eu[k] = e
+        tk.Button(f2, text="Lưu", command=self.upd_user).grid(row=1, column=5); tk.Button(f2, text="Xóa", command=self.del_user).grid(row=1, column=6)
+
+        self.tree_user = ttk.Treeview(self.tab_user, columns=("ID","Ten","Role","SDT","Email","Pass"), show="headings")
+        for c in ("ID","Ten","Role","SDT","Email","Pass"): self.tree_user.heading(c, text=c)
+        self.tree_user.pack(fill="both", expand=True); self.tree_user.bind("<<TreeviewSelect>>", self.sel_user)
+        self.ref_user()
+
+    def ref_user(self):
+        for i in self.tree_user.get_children(): self.tree_user.delete(i)
+        kw = self.entry_search_user.get().lower(); users = data.doc_danh_sach_user()
+        users.sort(key=lambda x: 0 if str(x['ID_Nguoi_Dung'])=='9999' else 1) # Admin lên đầu
+        for u in users:
+            if kw in u['Ten'].lower() or kw in u['SoDienThoai']: self.tree_user.insert("", "end", values=(u['ID_Nguoi_Dung'],u['Ten'],u['VaiTro'],u['SoDienThoai'],u['Email'],u['MatKhau']))
+
+    def sel_user(self, e):
+        s = self.tree_user.selection()
+        if s:
+            v = self.tree_user.item(s[0])['values']; self.selected_user_id = v[0]
+            self.eu['Tên'].delete(0,tk.END); self.eu['Tên'].insert(0,v[1])
+            self.eu['Vai trò'].delete(0,tk.END); self.eu['Vai trò'].insert(0,v[2])
+            self.eu['SĐT'].delete(0,tk.END); self.eu['SĐT'].insert(0,v[3])
+            self.eu['Email'].delete(0,tk.END); self.eu['Email'].insert(0,v[4])
+            self.eu['Mật khẩu'].delete(0,tk.END); self.eu['Mật khẩu'].insert(0,v[5])
+
+    def upd_user(self):
+        if self.selected_user_id: data.cap_nhat_thong_tin_user(self.selected_user_id, self.eu['Tên'].get(), self.eu['SĐT'].get(), self.eu['Email'].get(), self.eu['Mật khẩu'].get(), self.eu['Vai trò'].get()); self.ref_user()
+    def del_user(self):
+        if self.selected_user_id: data.xoa_user(self.selected_user_id); self.ref_user()
+
+    # --- TAB 4: DOANH THU ---
+    def build_tab_doanh_thu(self):
+        l = tk.Label(self.tab_doanh_thu, text="Doanh thu: 0", font=("Arial", 20)); l.pack(pady=20)
+        tk.Button(self.tab_doanh_thu, text="Cập nhật", command=lambda: l.config(text=f"Doanh thu: {data.thong_ke_doanh_thu():,} VND")).pack()
