@@ -1,0 +1,504 @@
+import csv
+import os
+import time
+import random
+from datetime import datetime, timedelta
+
+# Định nghĩa tên các file dữ liệu
+FILE_PHIM = 'Du_lieu_phim.csv'
+FILE_USER = 'Nguoi_dung.csv'
+FILE_VE = 'Ve.csv'
+FILE_LICH = 'Lich_chieu.csv'
+
+# ================= 1. LOGIC QUẢN LÝ PHIM =================
+def doc_danh_sach_phim():
+    """Đọc file CSV phim và trả về một danh sách các từ điển (dictionary)"""
+    phims = []
+    if not os.path.exists(FILE_PHIM): return [] # Nếu file chưa có thì trả về rỗng
+    with open(FILE_PHIM, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f) # Đọc theo tên cột (Header)
+        for row in reader: phims.append(row)
+    return phims
+
+def them_phim(ten, the_loai, thoi_luong, nam, gia, poster):
+    """Ghi thêm một phim mới vào cuối file CSV"""
+    new_id = int(time.time()) # Tạo ID ngẫu nhiên dựa trên thời gian hiện tại
+    file_exists = os.path.isfile(FILE_PHIM)
+
+    with open(FILE_PHIM, mode='a', newline='', encoding='utf-8') as f:
+        fieldnames = ['ID', 'Ten', 'TheLoai', 'ThoiLuong', 'Nam', 'GiaVe', 'Poster']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists: writer.writeheader() # Nếu file mới tạo thì viết dòng tiêu đề
+        writer.writerow({'ID': new_id, 'Ten': ten, 'TheLoai': the_loai, 'ThoiLuong': thoi_luong, 'Nam': nam, 'GiaVe': gia, 'Poster': poster})
+
+def cap_nhat_phim(id_phim, ten, the_loai, thoi_luong, nam, gia, poster):
+    """Tìm phim theo ID và cập nhật thông tin mới"""
+    phims = doc_danh_sach_phim()
+    updated = False
+    for p in phims:
+        if str(p['ID']) == str(id_phim): # Tìm thấy ID trùng khớp
+            p.update({'Ten': ten, 'TheLoai': the_loai, 'ThoiLuong': thoi_luong, 'Nam': nam, 'GiaVe': gia, 'Poster': poster})
+            updated = True; break
+
+    # Nếu có sửa đổi, ghi đè lại toàn bộ file
+    if updated:
+        with open(FILE_PHIM, mode='w', newline='', encoding='utf-8') as f:
+            fieldnames = ['ID', 'Ten', 'TheLoai', 'ThoiLuong', 'Nam', 'GiaVe', 'Poster']
+            writer = csv.DictWriter(f, fieldnames=fieldnames); writer.writeheader(); writer.writerows(phims)
+    return updated
+
+def xoa_phim(id_phim):
+    """Lọc bỏ phim có ID cần xóa và ghi lại file"""
+    phims = doc_danh_sach_phim()
+    phims = [p for p in phims if str(p['ID']) != str(id_phim)] # Giữ lại các phim KHÔNG trùng ID
+    with open(FILE_PHIM, mode='w', newline='', encoding='utf-8') as f:
+        fieldnames = ['ID', 'Ten', 'TheLoai', 'ThoiLuong', 'Nam', 'GiaVe', 'Poster']
+        writer = csv.DictWriter(f, fieldnames=fieldnames); writer.writeheader(); writer.writerows(phims)
+
+# ================= 2. LOGIC USER (ĐĂNG NHẬP/ĐĂNG KÝ) =================
+def doc_danh_sach_user():
+    users = []
+    if not os.path.exists(FILE_USER): return []
+    with open(FILE_USER, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader: users.append(row)
+    return users
+
+def check_login(username, password):
+    """Kiểm tra tên đăng nhập và mật khẩu"""
+    users = doc_danh_sach_user()
+    for row in users:
+        if row['Ten'] == username and row['MatKhau'] == password: return row # Trả về thông tin user nếu đúng
+    return None
+
+def register_user(ten, mat_khau, so_dien_thoai, email):
+    """Tạo tài khoản mới với quyền mặc định là 'customer'"""
+    new_id = int(time.time()); thoi_gian = time.strftime("%Y-%m-%d %H:%M:%S")
+    file_exists = os.path.isfile(FILE_USER)
+    with open(FILE_USER, mode='a', newline='', encoding='utf-8') as f:
+        fieldnames = ['ID_Nguoi_Dung','Ten','MatKhau','VaiTro','SoDienThoai','Email','ThoiGianTao','TrangThai']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists: writer.writeheader()
+        writer.writerow({'ID_Nguoi_Dung': new_id, 'Ten': ten, 'MatKhau': mat_khau, 'VaiTro': 'customer', 'SoDienThoai': so_dien_thoai, 'Email': email, 'ThoiGianTao': thoi_gian, 'TrangThai': 'Active'})
+    return True
+
+def cap_nhat_thong_tin_user(user_id, ten_moi, sdt_moi, email_moi, mat_khau_moi, vai_tro_moi="customer"):
+    """Admin hoặc User dùng hàm này để sửa thông tin cá nhân"""
+    users = doc_danh_sach_user()
+    updated = False
+    for u in users:
+        if str(u['ID_Nguoi_Dung']) == str(user_id):
+            u['Ten'] = ten_moi
+            u['SoDienThoai'] = sdt_moi
+            u['Email'] = email_moi
+            u['MatKhau'] = mat_khau_moi
+            if str(user_id) != '9999': # Bảo vệ Super Admin (ID 9999) không bị đổi quyền
+                u['VaiTro'] = vai_tro_moi
+            updated = True
+            break
+
+    if updated:
+        with open(FILE_USER, mode='w', newline='', encoding='utf-8') as f:
+            fieldnames = ['ID_Nguoi_Dung','Ten','MatKhau','VaiTro','SoDienThoai','Email','ThoiGianTao','TrangThai']
+            writer = csv.DictWriter(f, fieldnames=fieldnames); writer.writeheader(); writer.writerows(users)
+    return updated
+
+def xoa_user(user_id):
+    users = doc_danh_sach_user()
+    # Lọc bỏ user cần xóa, nhưng KHÔNG BAO GIỜ xóa Admin ID 9999
+    users = [u for u in users if str(u['ID_Nguoi_Dung']) != str(user_id) or str(u['ID_Nguoi_Dung']) == '9999']
+    with open(FILE_USER, mode='w', newline='', encoding='utf-8') as f:
+        fieldnames = ['ID_Nguoi_Dung','Ten','MatKhau','VaiTro','SoDienThoai','Email','ThoiGianTao','TrangThai']
+        writer = csv.DictWriter(f, fieldnames=fieldnames); writer.writeheader(); writer.writerows(users)
+
+# ================= 3. LOGIC LỊCH CHIẾU (QUAN TRỌNG) =================
+def doc_toan_bo_lich():
+    lich = []
+    if not os.path.exists(FILE_LICH): return []
+    with open(FILE_LICH, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f);
+        for row in reader: lich.append(row)
+    return lich
+
+def them_lich_chieu(movie_id, ten_phim, ngay, gio, phong):
+    """Thêm lịch chiếu mới, có kiểm tra trùng giờ/phòng"""
+    # Duyệt qua lịch cũ để xem có trùng không
+    for l in doc_toan_bo_lich():
+        if (l['Ngay'] == ngay and l['Gio'] == gio and l['Phong'] == phong):
+            return False, f"Trùng lịch tại {phong} lúc {gio} ngày {ngay}!"
+
+    new_id = int(time.time())
+    file_exists = os.path.isfile(FILE_LICH)
+    with open(FILE_LICH, mode='a', newline='', encoding='utf-8') as f:
+        fieldnames = ['ID_Lich', 'MovieID', 'TenPhim', 'Ngay', 'Gio', 'Phong']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists: writer.writeheader()
+        writer.writerow({'ID_Lich': new_id, 'MovieID': movie_id, 'TenPhim': ten_phim, 'Ngay': ngay, 'Gio': gio, 'Phong': phong})
+    return True, "Thêm lịch thành công!"
+
+def cap_nhat_lich_chieu(id_lich, movie_id, ten_phim, ngay, gio, phong):
+    """Sửa lịch chiếu (Kiểm tra trùng với các lịch KHÁC lịch đang sửa)"""
+    all_lich = doc_toan_bo_lich()
+    for l in all_lich:
+        if str(l['ID_Lich']) != str(id_lich): # Bỏ qua chính nó
+            if (l['Ngay'] == ngay and l['Gio'] == gio and l['Phong'] == phong):
+                return False, f"Trùng lịch tại {phong} lúc {gio}!"
+
+    updated = False
+    for l in all_lich:
+        if str(l['ID_Lich']) == str(id_lich):
+            l.update({'MovieID': movie_id, 'TenPhim': ten_phim, 'Ngay': ngay, 'Gio': gio, 'Phong': phong})
+            updated = True; break
+
+    if updated:
+        with open(FILE_LICH, mode='w', newline='', encoding='utf-8') as f:
+            fieldnames = ['ID_Lich', 'MovieID', 'TenPhim', 'Ngay', 'Gio', 'Phong']
+            writer = csv.DictWriter(f, fieldnames=fieldnames); writer.writeheader(); writer.writerows(all_lich)
+        return True, "Cập nhật thành công!"
+    return False, "Lỗi khi cập nhật."
+
+def xoa_lich_chieu(id_lich):
+    lichs = doc_toan_bo_lich()
+    lichs = [l for l in lichs if str(l['ID_Lich']) != str(id_lich)]
+    with open(FILE_LICH, mode='w', newline='', encoding='utf-8') as f:
+        fieldnames = ['ID_Lich', 'MovieID', 'TenPhim', 'Ngay', 'Gio', 'Phong']
+        writer = csv.DictWriter(f, fieldnames=fieldnames); writer.writeheader(); writer.writerows(lichs)
+
+def lay_lich_chieu_theo_phim(movie_id):
+    """Lọc ra các suất chiếu chỉ của phim này để hiện cho khách chọn"""
+    return [l for l in doc_toan_bo_lich() if str(l['MovieID']) == str(movie_id)]
+
+def tu_dong_xep_lich(so_ngay=3):
+    """Thuật toán tự động điền lịch cho 3 ngày tới"""
+    phims = doc_danh_sach_phim()
+    if not phims: return False, "Không có phim!"
+    phongs = ["Phòng 01", "Phòng 02", "Phòng VIP"]
+    today = datetime.now()
+    count = 0; ds_new = []
+
+    for i in range(so_ngay):
+        curr_date = (today + timedelta(days=i)).strftime("%d/%m/%Y")
+        for phong in phongs:
+            # Bắt đầu từ 9h sáng đến 23h đêm
+            curr_t = datetime.strptime(f"{curr_date} 09:00", "%d/%m/%Y %H:%M")
+            limit_t = datetime.strptime(f"{curr_date} 23:00", "%d/%m/%Y %H:%M")
+            while curr_t < limit_t:
+                p = random.choice(phims) # Chọn ngẫu nhiên 1 phim
+                try: dur = int(''.join(filter(str.isdigit, p['ThoiLuong'])))
+                except: dur = 90
+
+                ds_new.append({'ID_Lich': int(time.time())+count, 'MovieID': p['ID'], 'TenPhim': p['Ten'], 'Ngay': curr_date, 'Gio': curr_t.strftime("%H:%M"), 'Phong': phong})
+                count += 1; curr_t += timedelta(minutes=dur+30) # Cộng thời gian chiếu + 30p nghỉ
+
+    # Ghi nối vào file
+    file_exists = os.path.isfile(FILE_LICH)
+    with open(FILE_LICH, mode='a', newline='', encoding='utf-8') as f:
+        fieldnames = ['ID_Lich', 'MovieID', 'TenPhim', 'Ngay', 'Gio', 'Phong']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists: writer.writeheader()
+        writer.writerows(ds_new)
+    return True, f"Đã xếp {count} suất!"
+
+# --- 4. LOGIC VÉ & DOANH THU ---
+def luu_ve(user_id, movie_id, movie_name, seats, total_price, ngay, suat, phong):
+    """Lưu vé đã mua vào CSV"""
+    file_exists = os.path.isfile(FILE_VE)
+    with open(FILE_VE, mode='a', newline='', encoding='utf-8') as f:
+        fieldnames = ['UserID', 'MovieID', 'MovieName', 'Seats', 'TotalPrice', 'Time', 'NgayChieu', 'SuatChieu', 'PhongChieu']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists: writer.writeheader()
+        writer.writerow({'UserID': user_id, 'MovieID': movie_id, 'MovieName': movie_name, 'Seats': seats, 'TotalPrice': total_price, 'Time': time.strftime("%Y-%m-%d %H:%M:%S"), 'NgayChieu': ngay, 'SuatChieu': suat, 'PhongChieu': phong})
+
+def lay_ghe_da_dat(movie_id, ngay, suat, phong):
+    """Kiểm tra ghế đã đặt dựa trên 4 điều kiện: Phim, Ngày, Giờ, Phòng"""
+    booked = []
+    if not os.path.exists(FILE_VE): return []
+    with open(FILE_VE, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if (str(row['MovieID'])==str(movie_id) and row.get('NgayChieu')==ngay and row.get('SuatChieu')==suat and row.get('PhongChieu')==phong):
+                booked.extend(row['Seats'].split(','))
+    return booked
+
+def doc_lich_su_ve(user_id):
+    """Lấy lịch sử vé của một người dùng cụ thể"""
+    h = []
+    if not os.path.exists(FILE_VE): return []
+    with open(FILE_VE, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if str(row['UserID']) == str(user_id): h.append(row)
+    return h
+
+def thong_ke_doanh_thu():
+    t = 0
+    if not os.path.exists(FILE_VE): return 0
+    with open(FILE_VE, mode='r', encoding='utf-8') as f:
+        for row in csv.DictReader(f): t += int(row['TotalPrice'])
+    return t
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime, timedelta
+
+# Minimal in-memory data module for demonstration purposes
+# In a real application, this would typically be a separate data.py file or interact with a database.
+
+_phim_data = [
+    {'ID': 1, 'Ten': 'Phim A', 'TheLoai': 'Hành Động', 'ThoiLuong': '120 phút', 'Nam': '2023', 'GiaVe': '100000', 'Poster': 'link_a.jpg'},
+    {'ID': 2, 'Ten': 'Phim B', 'TheLoai': 'Tình Cảm', 'ThoiLuong': '90 phút', 'Nam': '2022', 'GiaVe': '80000', 'Poster': 'link_b.jpg'}
+]
+_next_phim_id = 3
+
+_lich_data = [
+    {'ID_Lich': 1, 'ID_Phim': 1, 'TenPhim': 'Phim A', 'Ngay': '01/01/2024', 'Gio': '09:00', 'Phong': 'Phòng 01'}
+]
+_next_lich_id = 2
+
+_user_data = [
+    {'ID_Nguoi_Dung': 9999, 'Ten': 'Admin', 'VaiTro': 'admin', 'SoDienThoai': '123456789', 'Email': 'admin@example.com', 'MatKhau': 'admin'},
+    {'ID_Nguoi_Dung': 1, 'Ten': 'User 1', 'VaiTro': 'user', 'SoDienThoai': '987654321', 'Email': 'user1@example.com', 'MatKhau': 'pass1'}
+]
+_next_user_id = 2 # Next ID for regular users
+
+class data:
+    @staticmethod
+    def doc_danh_sach_phim():
+        return _phim_data
+
+    @staticmethod
+    def them_phim(ten, the_loai, thoi_luong, nam, gia_ve, poster):
+        global _next_phim_id
+        _phim_data.append({'ID': _next_phim_id, 'Ten': ten, 'TheLoai': the_loai, 'ThoiLuong': thoi_luong, 'Nam': nam, 'GiaVe': gia_ve, 'Poster': poster})
+        _next_phim_id += 1
+
+    @staticmethod
+    def cap_nhat_phim(id, ten, the_loai, thoi_luong, nam, gia_ve, poster):
+        for i, p in enumerate(_phim_data):
+            if p['ID'] == id:
+                _phim_data[i] = {'ID': id, 'Ten': ten, 'TheLoai': the_loai, 'ThoiLuong': thoi_luong, 'Nam': nam, 'GiaVe': gia_ve, 'Poster': poster}
+                break
+
+    @staticmethod
+    def xoa_phim(id):
+        global _phim_data
+        _phim_data = [p for p in _phim_data if p['ID'] != id]
+
+    @staticmethod
+    def doc_toan_bo_lich():
+        return _lich_data
+
+    @staticmethod
+    def them_lich_chieu(id_phim, ten_phim, ngay, gio, phong):
+        global _next_lich_id
+        _lich_data.append({'ID_Lich': _next_lich_id, 'ID_Phim': id_phim, 'TenPhim': ten_phim, 'Ngay': ngay, 'Gio': gio, 'Phong': phong})
+        _next_lich_id += 1
+        return True, "Thêm lịch chiếu thành công"
+
+    @staticmethod
+    def cap_nhat_lich_chieu(id_lich, id_phim, ten_phim, ngay, gio, phong):
+        for i, l in enumerate(_lich_data):
+            if l['ID_Lich'] == id_lich:
+                _lich_data[i] = {'ID_Lich': id_lich, 'ID_Phim': id_phim, 'TenPhim': ten_phim, 'Ngay': ngay, 'Gio': gio, 'Phong': phong}
+                break
+
+    @staticmethod
+    def xoa_lich_chieu(id_lich):
+        global _lich_data
+        _lich_data = [l for l in _lich_data if l['ID_Lich'] != id_lich]
+
+    @staticmethod
+    def tu_dong_xep_lich():
+        # Simple auto-scheduling logic for demonstration
+        return True, "Tự động xếp lịch thành công"
+
+    @staticmethod
+    def doc_danh_sach_user():
+        return _user_data
+
+    @staticmethod
+    def cap_nhat_thong_tin_user(id, ten, sdt, email, mat_khau, vai_tro):
+        for i, u in enumerate(_user_data):
+            if u['ID_Nguoi_Dung'] == id:
+                _user_data[i] = {'ID_Nguoi_Dung': id, 'Ten': ten, 'SoDienThoai': sdt, 'Email': email, 'MatKhau': mat_khau, 'VaiTro': vai_tro}
+                break
+
+    @staticmethod
+    def xoa_user(id):
+        global _user_data
+        _user_data = [u for u in _user_data if u['ID_Nguoi_Dung'] != id]
+
+    @staticmethod
+    def thong_ke_doanh_thu():
+        # Placeholder for revenue calculation
+        return 123456789 # Example revenue
+
+# End of minimal data module
+
+class AdminDashboard(tk.Frame):
+    def __init__(self, master, on_logout):
+        super().__init__(master)
+        # Các biến lưu ID đang được chọn để sửa
+        self.selected_phim_id = None
+        self.selected_lich_id = None
+        self.selected_user_id = None
+
+        # Header
+        top_frame = tk.Frame(self, bg="#2c3e50", height=50); top_frame.pack(fill="x")
+        tk.Label(top_frame, text="ADMIN DASHBOARD", fg="white", bg="#2c3e50", font=("Arial", 14, "bold")).pack(side="left", padx=10)
+        tk.Button(top_frame, text="Đăng xuất", command=on_logout).pack(side="right", padx=10)
+
+        # Tabs
+        notebook = ttk.Notebook(self); notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        self.tab_phim = tk.Frame(notebook); self.tab_lich = tk.Frame(notebook); self.tab_user = tk.Frame(notebook); self.tab_doanh_thu = tk.Frame(notebook)
+
+        notebook.add(self.tab_phim, text="1. Phim"); notebook.add(self.tab_lich, text="2. Lịch Chiếu")
+        notebook.add(self.tab_user, text="3. Người dùng"); notebook.add(self.tab_doanh_thu, text="4. Doanh thu")
+
+        self.build_tab_phim(); self.build_tab_lich(); self.build_tab_user(); self.build_tab_doanh_thu()
+
+    # --- TAB 1: PHIM ---
+    def build_tab_phim(self):
+        # Tìm kiếm
+        f_search = tk.Frame(self.tab_phim); f_search.pack(fill="x", padx=10, pady=5)
+        tk.Label(f_search, text="🔍 Tìm phim:").pack(side="left")
+        self.entry_search_phim = tk.Entry(f_search, width=30); self.entry_search_phim.pack(side="left", padx=5)
+        self.entry_search_phim.bind("<KeyRelease>", self.refresh_list_phim)
+
+        # Form nhập liệu
+        f_input = tk.LabelFrame(self.tab_phim, text="Thông tin"); f_input.pack(fill="x", padx=5)
+        self.entries_phim = {}
+        for i, f in enumerate(['Tên phim', 'Thể loại', 'Thời lượng', 'Năm', 'Giá vé', 'Link Poster']):
+            tk.Label(f_input, text=f).grid(row=0, column=i); e = tk.Entry(f_input, width=15); e.grid(row=1, column=i); self.entries_phim[f] = e
+
+        tk.Button(f_input, text="Thêm", command=self.add_movie).grid(row=1, column=6)
+        tk.Button(f_input, text="Sửa", command=self.update_movie).grid(row=1, column=7)
+        tk.Button(f_input, text="Xóa", command=self.delete_movie).grid(row=1, column=8)
+
+        # Bảng
+        self.tree_phim = ttk.Treeview(self.tab_phim, columns=("ID","Ten","TheLoai","ThoiLuong","Nam","GiaVe","Poster"), show="headings")
+        for c in ("ID","Ten","TheLoai","ThoiLuong","Nam","GiaVe","Poster"): self.tree_phim.heading(c, text=c)
+        self.tree_phim.pack(fill="both", expand=True); self.tree_phim.bind("<<TreeviewSelect>>", self.on_select_phim)
+        self.refresh_list_phim()
+
+    def on_select_phim(self, e):
+        sel = self.tree_phim.selection();
+        if not sel: return
+        vals = self.tree_phim.item(sel[0])['values']; self.selected_phim_id = vals[0]
+        for i, k in enumerate(['Tên phim', 'Thể loại', 'Thời lượng', 'Năm', 'Giá vé', 'Link Poster']):
+            self.entries_phim[k].delete(0, tk.END); self.entries_phim[k].insert(0, vals[i+1])
+
+    def refresh_list_phim(self, e=None):
+        for i in self.tree_phim.get_children(): self.tree_phim.delete(i)
+        kw = self.entry_search_phim.get().lower()
+        for p in data.doc_danh_sach_phim():
+            if kw in p['Ten'].lower(): self.tree_phim.insert("", "end", values=(p['ID'],p['Ten'],p['TheLoai'],p['ThoiLuong'],p['Nam'],p['GiaVe'],p['Poster']))
+
+    def add_movie(self):
+        d = {k: v.get() for k, v in self.entries_phim.items()}
+        data.them_phim(d['Tên phim'],d['Thể loại'],d['Thời lượng'],d['Năm'],d['Giá vé'],d['Link Poster'])
+        self.refresh_list_phim()
+
+    def update_movie(self):
+        if not self.selected_phim_id: return
+        d = {k: v.get() for k, v in self.entries_phim.items()}
+        data.cap_nhat_phim(self.selected_phim_id, d['Tên phim'],d['Thể loại'],d['Thời lượng'],d['Năm'],d['Giá vé'],d['Link Poster'])
+        self.refresh_list_phim()
+
+    def delete_movie(self):
+        if self.selected_phim_id and messagebox.askyesno("Xóa", "Xóa phim này?"):
+            data.xoa_phim(self.selected_phim_id); self.refresh_list_phim()
+
+    # --- TAB 2: LỊCH CHIẾU ---
+    def build_tab_lich(self):
+        f = tk.LabelFrame(self.tab_lich, text="Lịch Chiếu"); f.pack(fill="x", padx=10)
+        tk.Label(f, text="Phim:").grid(row=0, column=0); self.cb_phim = ttk.Combobox(f, width=20); self.cb_phim.grid(row=0, column=1)
+        tk.Label(f, text="Ngày:").grid(row=0, column=2); self.cb_ngay = ttk.Combobox(f, width=10, values=[(datetime.now()+timedelta(days=i)).strftime("%d/%m/%Y") for i in range(7)]); self.cb_ngay.current(0); self.cb_ngay.grid(row=0, column=3)
+        tk.Label(f, text="Giờ:").grid(row=0, column=4); self.cb_gio = ttk.Combobox(f, width=8, values=["09:00","12:00","15:00","18:00","21:00"]); self.cb_gio.current(0); self.cb_gio.grid(row=0, column=5)
+        tk.Label(f, text="Phòng:").grid(row=0, column=6); self.cb_phong = ttk.Combobox(f, width=10, values=["Phòng 01","Phòng 02","Phòng VIP"]); self.cb_phong.current(0); self.cb_phong.grid(row=0, column=7)
+
+        tk.Button(f, text="Thêm", command=self.add_sche).grid(row=0, column=8)
+        tk.Button(f, text="Sửa", command=self.upd_sche).grid(row=0, column=9)
+        tk.Button(f, text="Xóa", command=self.del_sche).grid(row=0, column=10)
+        tk.Button(self.tab_lich, text="Auto Xếp Lịch", command=self.auto_sche).pack()
+
+        self.tree_lich = ttk.Treeview(self.tab_lich, columns=("ID","Ten","Ngay","Gio","Phong"), show="headings")
+        for c in ("ID","Ten","Ngay","Gio","Phong"): self.tree_lich.heading(c, text=c)
+        self.tree_lich.pack(fill="both", expand=True); self.tree_lich.bind("<<TreeviewSelect>>", self.sel_sche)
+        self.tab_lich.bind("<Visibility>", self.ref_sche); self.ref_sche(None)
+
+    def ref_sche(self, e):
+        p = data.doc_danh_sach_phim(); self.phim_map = {x['Ten']: x['ID'] for x in p}
+        self.cb_phim['values'] = list(self.phim_map.keys())
+        for i in self.tree_lich.get_children(): self.tree_lich.delete(i)
+        for l in data.doc_toan_bo_lich(): self.tree_lich.insert("", "end", values=(l['ID_Lich'],l['TenPhim'],l['Ngay'],l['Gio'],l['Phong']))
+
+    def sel_sche(self, e):
+        s = self.tree_lich.selection()
+        if s:
+            v = self.tree_lich.item(s[0])['values']; self.selected_lich_id = v[0]
+            self.cb_phim.set(v[1]); self.cb_ngay.set(v[2]); self.cb_gio.set(v[3]); self.cb_phong.set(v[4])
+
+    def add_sche(self):
+        if data.them_lich_chieu(self.phim_map[self.cb_phim.get()], self.cb_phim.get(), self.cb_ngay.get(), self.cb_gio.get(), self.cb_phong.get())[0]: self.ref_sche(None)
+    def upd_sche(self):
+        if self.selected_lich_id: data.cap_nhat_lich_chieu(self.selected_lich_id, self.phim_map[self.cb_phim.get()], self.cb_phim.get(), self.cb_ngay.get(), self.cb_gio.get(), self.cb_phong.get()); self.ref_sche(None)
+    def del_sche(self):
+        if self.selected_lich_id: data.xoa_lich_chieu(self.selected_lich_id); self.ref_sche(None)
+    def auto_sche(self):
+        if data.tu_dong_xep_lich()[0]: self.ref_sche(None)
+
+    # --- TAB 3: USER ---
+    def build_tab_user(self):
+        f = tk.Frame(self.tab_user); f.pack(fill="x")
+        tk.Label(f, text="Tìm User:").pack(side="left"); self.entry_search_user = tk.Entry(f); self.entry_search_user.pack(side="left"); self.entry_search_user.bind("<KeyRelease>", lambda e: self.ref_user())
+
+        f2 = tk.LabelFrame(self.tab_user, text="Sửa User"); f2.pack(fill="x")
+        self.eu = {}; fs = ['Tên','SĐT','Email','Mật khẩu','Vai trò']
+        for i, k in enumerate(fs): tk.Label(f2, text=k).grid(row=0, column=i); e = tk.Entry(f2); e.grid(row=1, column=i); self.eu[k] = e
+        tk.Button(f2, text="Lưu", command=self.upd_user).grid(row=1, column=5); tk.Button(f2, text="Xóa", command=self.del_user).grid(row=1, column=6)
+
+        self.tree_user = ttk.Treeview(self.tab_user, columns=("ID","Ten","Role","SDT","Email","Pass"), show="headings")
+        for c in ("ID","Ten","Role","SDT","Email","Pass"): self.tree_user.heading(c, text=c)
+        self.tree_user.pack(fill="both", expand=True); self.tree_user.bind("<<TreeviewSelect>>", self.sel_user)
+        self.ref_user()
+
+    def ref_user(self):
+        for i in self.tree_user.get_children(): self.tree_user.delete(i)
+        kw = self.entry_search_user.get().lower(); users = data.doc_danh_sach_user()
+        users.sort(key=lambda x: 0 if str(x['ID_Nguoi_Dung'])=='9999' else 1) # Admin lên đầu
+        for u in users:
+            if kw in u['Ten'].lower() or kw in u['SoDienThoai']: self.tree_user.insert("", "end", values=(u['ID_Nguoi_Dung'],u['Ten'],u['VaiTro'],u['SoDienThoai'],u['Email'],u['MatKhau']))
+
+    def sel_user(self, e):
+        s = self.tree_user.selection()
+        if s:
+            v = self.tree_user.item(s[0])['values']; self.selected_user_id = v[0]
+            self.eu['Tên'].delete(0,tk.END); self.eu['Tên'].insert(0,v[1])
+            self.eu['Vai trò'].delete(0,tk.END); self.eu['Vai trò'].insert(0,v[2])
+            self.eu['SĐT'].delete(0,tk.END); self.eu['SĐT'].insert(0,v[3])
+            self.eu['Email'].delete(0,tk.END); self.eu['Email'].insert(0,v[4])
+            self.eu['Mật khẩu'].delete(0,tk.END); self.eu['Mật khẩu'].insert(0,v[5])
+
+    def upd_user(self):
+        if self.selected_user_id: data.cap_nhat_thong_tin_user(self.selected_user_id, self.eu['Tên'].get(), self.eu['SĐT'].get(), self.eu['Email'].get(), self.eu['Mật khẩu'].get(), self.eu['Vai trò'].get()); self.ref_user()
+    def del_user(self):
+        if self.selected_user_id: data.xoa_user(self.selected_user_id); self.ref_user()
+
+    # --- TAB 4: DOANH THU ---
+    def build_tab_doanh_thu(self):
+        l = tk.Label(self.tab_doanh_thu, text="Doanh thu: 0", font=("Arial", 20)); l.pack(pady=20)
+        tk.Button(self.tab_doanh_thu, text="Cập nhật", command=lambda: l.config(text=f"Doanh thu: {data.thong_ke_doanh_thu():,} VND")).pack()
+               # ================== CHẠY GIAO DIỆN ==================
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("Hệ thống quản lý rạp phim")
+    root.geometry("1200x700")
+
+    def logout():
+        messagebox.showinfo("Đăng xuất", "Đã đăng xuất")
+
+    app = AdminDashboard(root, logout)
+    app.pack(fill="both", expand=True)
+
+    root.mainloop()
